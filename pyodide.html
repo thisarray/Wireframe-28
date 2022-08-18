@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>turn using Pyodide</title>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.21.0/full/pyodide.js"></script>
+  <style type="text/css" media="screen">
+body {
+  background-color: white;
+  color: black;
+}
+.hidden {
+  display: none;
+}
+#original {
+  margin-left: 1em;
+}
+#output {
+  margin-left: 1em;
+  resize: none;
+}
+  </style>
+</head>
+
+<body>
+
+<main>
+<h1>turn using Pyodide</h1>
+
+<textarea id="output" cols="80" rows="30" readonly></textarea>
+
+<p>The original Python code is run in the browser using <a href="https://pyodide.org/">Pyodide</a> with output above.</p>
+
+<h2>Attribution</h2>
+
+<p><a href="https://wireframe.raspberrypi.com/issues/28">Source Code: Create a turn-based combat system, pages 40-41, by Rik Cross</a>.</p>
+
+<p>Licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/legalcode">Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported</a>.</p>
+
+<p><a href="https://www.raspberrypi.com/news/create-a-turn-based-combat-system-wireframe-28/">Blog post of Source Code</a>.</p>
+
+<h2>Original Python code</h2>
+
+<pre id="original"><code>
+import random, time
+
+class Action():
+    def __init__(self, owner, opponent):
+        self.owner = owner
+        self.opponent = opponent
+
+    def execute(self):
+        pass
+
+
+class Attack(Action):
+    def __init__(self, owner, opponent):
+        super().__init__(owner, opponent)
+
+    def execute(self):
+        self.owner.defending = False
+        if self.opponent.defending:
+            hit = random.randrange(10,20)
+        else:
+            hit = random.randrange(20,40)
+        self.opponent.health -= hit
+        print(&#x27;{} is hit! (-{})&#x27;.format(self.opponent.name, hit))
+
+
+class Defend(Action):
+    def __init__(self, owner, opponent):
+        super().__init__(owner, opponent)
+
+    def execute(self):
+        self.owner.defending = True
+        print(self.owner.name, &#x27;is defending!&#x27;)
+
+
+class Player():
+    players = []
+
+    def __init__(self, name, inputmethod):
+        self.name = name
+        self.inputmethod = inputmethod
+        self.health = 100
+        self.defending = False
+        self.players.append(self)
+
+    def __str__(self):
+        description = &quot;Player: {}\n{}\nHealth = {}\nDefending = {}\n&quot;.format(
+            self.name,
+            &#x27;-&#x27; * (8 + len(self.name)),
+            self.health,
+            self.defending
+        )
+        return(description)
+
+    @classmethod
+    def get_next_player(cls, p):
+        # get the next player still in the game
+        current_index = cls.players.index(p)
+        current_index = (current_index + 1) % len(cls.players)
+        while cls.players[current_index].health &lt; 1:
+            current_index = (current_index + 1) % len(cls.players)
+        return cls.players[current_index]
+
+    def choose_action(self):
+        print(self.name, &#x27;: [a]ttack or [d]efend?&#x27;)
+        action_choice = self.inputmethod([&#x27;a&#x27;, &#x27;d&#x27;])
+        if action_choice == &#x27;a&#x27;:
+            print(&#x27;Choose an opponent&#x27;)
+            # build up a list of possible opponents
+            opponent_list = []
+            for p in self.players:
+                if p != self and p.health &gt; 0:
+                    print(&#x27;[{}] {}&#x27;.format(self.players.index(p), p.name))
+                    opponent_list.append(str(self.players.index(p)))
+            # use input to get the opponent of player&#x27;s action
+            opponent = self.players[int(self.inputmethod(opponent_list))]
+            return Attack(self, opponent)
+        else:
+            return Defend(self, None)
+
+
+def human_input(choices):
+    choice = input()
+    while choice not in choices:
+        print(&#x27;Try again!&#x27;)
+        choice = input()
+    return choice
+
+def computer_input(choices):
+    time.sleep(2)
+    choice = random.choice(choices)
+    print(choice)
+    return choice
+
+# add 2 players to the battle, with their own input method
+hero = Player(&#x27;The Hero&#x27;, human_input)
+enemy = Player(&#x27;The Enemy&#x27;, computer_input)
+
+# the hero has the first turn
+current_player = Player.players[0]
+playing = True
+
+# game loop
+while playing:
+
+    # print all players with health remaining
+    for p in Player.players:
+        if p.health &gt; 0:
+            print(p, end=&#x27;\n\n&#x27;)
+
+    # current player&#x27;s action executed
+    action = current_player.choose_action()
+    time.sleep(2)
+    action.execute()
+
+    # continue only if more than 1 player with health remaining
+    if len([p for p in Player.players if p.health &gt; 0]) &gt; 1:
+        current_player = Player.get_next_player(current_player)
+        time.sleep(2)
+    else:
+        playing = False
+
+for p in Player.players:
+    if p.health &gt; 0:
+        print(&#x27;**&#x27;, p.name, &#x27;wins!&#x27;)
+</code></pre>
+</main>
+
+<script>
+const code = document.querySelector('#original');
+const output = document.querySelector('#output');
+
+function print() {
+  let text = Array.from(arguments).join(' ') + '\n';
+
+  console.log(text);
+
+  // Append the text and scroll to the bottom
+  output.textContent += text;
+  output.scroll(0, output.scrollHeight);
+}
+
+async function main() {
+  let pyodide = await loadPyodide({stdout: print});
+  pyodide.runPython(code.textContent.trim());
+}
+main();
+</script>
+</body>
+
+</html>
